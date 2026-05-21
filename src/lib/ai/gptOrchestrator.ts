@@ -1,12 +1,10 @@
 /**
  * GPT Orchestrator - Server-side only.
- * Sends user command to OpenAI and returns a validated task plan.
+ * Sends user command to an OpenAI-compatible provider and returns a validated task plan.
  */
 
 import { z } from "zod";
 import { callOpenAI, isOpenAIConfigured } from "./openaiClient";
-
-// ─── Zod Schema for GPT Orchestrator Response ─────────────────────────────
 
 export const GptTaskSchema = z.object({
   id: z.string(),
@@ -32,53 +30,30 @@ export type GptTask = z.infer<typeof GptTaskSchema>;
 export type GptOrchestratorPlan = z.infer<typeof GptOrchestratorPlanSchema>;
 
 export type OrchestratorResult =
-  | {
-      success: true;
-      plan: GptOrchestratorPlan;
-      mode: "live";
-    }
-  | {
-      success: false;
-      error: string;
-      mode: "fallback";
-    };
-
-// ─── System Prompt ────────────────────────────────────────────────────────
+  | { success: true; plan: GptOrchestratorPlan; mode: "live" }
+  | { success: false; error: string; mode: "fallback" };
 
 const ORCHESTRATOR_SYSTEM_PROMPT = `Kamu adalah GPT Orchestrator untuk NodeAI Controller.
-Tugasmu adalah membaca perintah user dan membuat task plan untuk multi-agent system.
-
-User tidak perlu menentukan agent.
-Kamu yang memilih agent terbaik berdasarkan intent.
+Tugasmu membaca perintah user dan membuat task plan untuk multi-agent system.
 
 Agent yang tersedia:
-
-1. gpt_orchestrator
-   - role: planning, routing, final answer
-2. claude_agent
-   - role: deep reasoning, code review, risk analysis, architecture
-3. deepseek_agent
-   - role: fast summary, trend analysis, low-cost reasoning
-4. kiro_dev_agent
-   - role: codebase inspection, UI refactor, project fixes
-5. local_node_worker
-   - role: safe command execution, build check, log reading
-6. artifact_renderer
-   - role: chart, report, code preview, JSON output
+1. gpt_orchestrator: planning, routing, final answer
+2. claude_agent: deep reasoning, code review, risk analysis, architecture
+3. deepseek_agent: fast summary, trend analysis, low-cost reasoning
+4. kiro_dev_agent: codebase inspection, UI refactor, project fixes
+5. local_node_worker: safe command execution, build check, log reading
+6. artifact_renderer: chart, report, code preview, JSON output
 
 Aturan:
-
 - Jangan menjalankan command sungguhan.
 - Jangan mengklaim task sudah selesai.
 - Buat rencana kerja saja.
 - Output wajib JSON valid.
 - Jangan output markdown.
 - Jangan output penjelasan di luar JSON.
-- Jangan memasukkan secret, API key, private key, atau data sensitif.
 - Kalau task berisiko, tambahkan needsApproval: true.
 
 Format output wajib:
-
 {
   "intent": "string",
   "priority": "low | normal | high",
@@ -99,15 +74,13 @@ Format output wajib:
   "finalResponsePlan": "string"
 }`;
 
-// ─── Orchestrator Function ────────────────────────────────────────────────
-
 export async function runGptOrchestrator(
   command: string
 ): Promise<OrchestratorResult> {
   if (!isOpenAIConfigured()) {
     return {
       success: false,
-      error: "OPENAI_API_KEY belum diset. Menggunakan mock mode.",
+      error: "AI API key belum diset. Gunakan OPENAI_COMPATIBLE_API_KEY atau OPENAI_API_KEY.",
       mode: "fallback",
     };
   }
@@ -117,18 +90,13 @@ export async function runGptOrchestrator(
       { role: "system", content: ORCHESTRATOR_SYSTEM_PROMPT },
       { role: "user", content: command },
     ],
-    model: "gpt-4o-mini",
     temperature: 0.3,
     maxTokens: 2000,
     responseFormat: { type: "json_object" },
   });
 
   if (!result.success) {
-    return {
-      success: false,
-      error: result.error,
-      mode: "fallback",
-    };
+    return { success: false, error: result.error, mode: "fallback" };
   }
 
   let parsed: unknown;
@@ -155,9 +123,5 @@ export async function runGptOrchestrator(
     };
   }
 
-  return {
-    success: true,
-    plan: validated.data,
-    mode: "live",
-  };
+  return { success: true, plan: validated.data, mode: "live" };
 }
