@@ -1,0 +1,58 @@
+import { AIProvider } from "@/types";
+
+export const mockAgents: AIProvider[] = [
+  {
+    id: "gpt_orchestrator",
+    name: "GPT Orchestrator",
+    role: "Main Controller",
+    model: "GPT",
+    status: "online",
+    capabilities: ["planning", "routing", "final answer"],
+    lastActive: new Date().toISOString(),
+  },
+  {
+    id: "claude_agent",
+    name: "Claude Agent",
+    role: "Deep Reasoning",
+    model: "Claude",
+    status: "online",
+    capabilities: ["code review", "risk analysis", "complex reasoning"],
+    lastActive: new Date().toISOString(),
+  },
+  {
+    id: "deepseek_agent",
+    name: "DeepSeek Agent",
+    role: "Fast Analyst",
+    model: "DeepSeek",
+    status: "online",
+    capabilities: ["summary", "trend", "low-cost reasoning"],
+    lastActive: new Date().toISOString(),
+  },
+  {
+    id: "kiro_dev_agent",
+    name: "Kiro Dev Agent",
+    role: "Codebase Worker",
+    model: "Kiro",
+    status: "standby",
+    capabilities: ["edit code", "refactor", "inspect project"],
+    lastActive: new Date().toISOString(),
+  },
+  {
+    id: "local_node_worker",
+    name: "Local Node Worker",
+    role: "Executor",
+    model: "Node.js Worker",
+    status: "online",
+    capabilities: ["run safe tools", "build", "read logs"],
+    lastActive: new Date().toISOString(),
+  },
+  {
+    id: "artifact_renderer",
+    name: "Artifact Renderer",
+    role: "Output Renderer",
+    model: "internal",
+    status: "online",
+    capabilities: ["chart", "report", "code preview"],
+    lastActive: new Date().toISOString(),
+  },
+];
