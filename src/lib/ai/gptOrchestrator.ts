@@ -28,8 +28,20 @@ export const GptOrchestratorPlanSchema = z.object({
   finalResponsePlan: z.string(),
 });
 
-export type GptOrchestratorPlan = z.infer<typeof GptOrchestratorPlanSchema>;
 export type GptTask = z.infer<typeof GptTaskSchema>;
+export type GptOrchestratorPlan = z.infer<typeof GptOrchestratorPlanSchema>;
+
+export type OrchestratorResult =
+  | {
+      success: true;
+      plan: GptOrchestratorPlan;
+      mode: "live";
+    }
+  | {
+      success: false;
+      error: string;
+      mode: "fallback";
+    };
 
 // ─── System Prompt ────────────────────────────────────────────────────────
 
@@ -89,18 +101,9 @@ Format output wajib:
 
 // ─── Orchestrator Function ────────────────────────────────────────────────
 
-export interface OrchestratorResult {
-  success: true;
-  plan: GptOrchestratorPlan;
-  mode: "live";
-} | {
-  success: false;
-  error: string;
-  mode: "fallback";
-}
-
-export async function runGptOrchestrator(command: string): Promise<OrchestratorResult> {
-  // Check if OpenAI is configured
+export async function runGptOrchestrator(
+  command: string
+): Promise<OrchestratorResult> {
   if (!isOpenAIConfigured()) {
     return {
       success: false,
@@ -109,7 +112,6 @@ export async function runGptOrchestrator(command: string): Promise<OrchestratorR
     };
   }
 
-  // Call OpenAI
   const result = await callOpenAI({
     messages: [
       { role: "system", content: ORCHESTRATOR_SYSTEM_PROMPT },
@@ -129,8 +131,8 @@ export async function runGptOrchestrator(command: string): Promise<OrchestratorR
     };
   }
 
-  // Parse JSON from GPT response
   let parsed: unknown;
+
   try {
     parsed = JSON.parse(result.content);
   } catch {
@@ -141,13 +143,14 @@ export async function runGptOrchestrator(command: string): Promise<OrchestratorR
     };
   }
 
-  // Validate with Zod
   const validated = GptOrchestratorPlanSchema.safeParse(parsed);
 
   if (!validated.success) {
     return {
       success: false,
-      error: `GPT response validation failed: ${validated.error.issues.map(i => i.message).join(", ")}. Menggunakan mock mode.`,
+      error: `GPT response validation failed: ${validated.error.issues
+        .map((issue) => issue.message)
+        .join(", ")}. Menggunakan mock mode.`,
       mode: "fallback",
     };
   }
