@@ -1,6 +1,8 @@
 /**
- * OpenAI Client for server-side use only.
+ * OpenAI-compatible client for server-side use only.
+ *
  * Never import this file from client components.
+ * Supports both official OpenAI env vars and OpenAI-compatible providers.
  */
 
 interface OpenAIMessage {
@@ -23,17 +25,37 @@ interface OpenAIResponse {
   created: number;
   model: string;
   choices: OpenAIChoice[];
-  usage: {
+  usage?: {
     prompt_tokens: number;
     completion_tokens: number;
     total_tokens: number;
   };
 }
 
+function readEnv(name: string): string | null {
+  const value = process.env[name];
+  if (!value || value.trim() === "") return null;
+  return value.trim();
+}
+
 export function getOpenAIApiKey(): string | null {
-  const key = process.env.OPENAI_API_KEY;
-  if (!key || key.trim() === "") return null;
-  return key.trim();
+  return readEnv("OPENAI_API_KEY") ?? readEnv("OPENAI_COMPATIBLE_API_KEY");
+}
+
+export function getOpenAIBaseUrl(): string {
+  return (
+    readEnv("OPENAI_BASE_URL") ??
+    readEnv("OPENAI_COMPATIBLE_BASE_URL") ??
+    "https://api.openai.com/v1"
+  ).replace(/\/$/, "");
+}
+
+export function getOpenAIModel(): string {
+  return (
+    readEnv("OPENAI_MODEL") ??
+    readEnv("OPENAI_COMPATIBLE_MODEL") ??
+    "gpt-4o-mini"
+  );
 }
 
 export function isOpenAIConfigured(): boolean {
@@ -50,12 +72,16 @@ export async function callOpenAI(params: {
   const apiKey = getOpenAIApiKey();
 
   if (!apiKey) {
-    return { success: false, error: "OPENAI_API_KEY belum diset." };
+    return {
+      success: false,
+      error:
+        "AI API key belum diset. Gunakan OPENAI_API_KEY atau OPENAI_COMPATIBLE_API_KEY.",
+    };
   }
 
   const {
     messages,
-    model = "gpt-4o-mini",
+    model = getOpenAIModel(),
     temperature = 0.3,
     maxTokens = 2000,
     responseFormat,
@@ -73,7 +99,7 @@ export async function callOpenAI(params: {
       body.response_format = responseFormat;
     }
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch(`${getOpenAIBaseUrl()}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -86,7 +112,7 @@ export async function callOpenAI(params: {
       const errorText = await response.text();
       return {
         success: false,
-        error: `OpenAI API error (${response.status}): ${errorText.substring(0, 200)}`,
+        error: `AI API error (${response.status}): ${errorText.substring(0, 300)}`,
       };
     }
 
@@ -94,12 +120,12 @@ export async function callOpenAI(params: {
 
     const content = data.choices?.[0]?.message?.content;
     if (!content) {
-      return { success: false, error: "OpenAI returned empty response." };
+      return { success: false, error: "AI provider returned empty response." };
     }
 
     return { success: true, content };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    return { success: false, error: `OpenAI request failed: ${message}` };
+    return { success: false, error: `AI request failed: ${message}` };
   }
 }
