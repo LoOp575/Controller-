@@ -11,7 +11,7 @@ const exampleCommands = [
 ];
 
 export function ControllerChat() {
-  const { commandText, setCommandText, isRunning, error, runController } =
+  const { commandText, setCommandText, isRunning, error, runController, fallbackReason, apiMode } =
     useControllerStore();
 
   const handleSend = () => {
@@ -71,6 +71,12 @@ export function ControllerChat() {
       {error && (
         <div className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 border border-red-200">
           {error}
+        </div>
+      )}
+
+      {!error && apiMode === "mock" && fallbackReason && (
+        <div className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 border border-amber-200">
+          ⚠️ {fallbackReason}
         </div>
       )}
 

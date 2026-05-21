@@ -83,4 +83,9 @@ export interface ControllerRunResponse {
   activityLogs: ActivityLog[];
   finalAnswer: string;
   artifacts: Artifact[];
+  _meta?: {
+    mode: "live" | "mock";
+    model?: string;
+    fallbackReason?: string;
+  };
 }

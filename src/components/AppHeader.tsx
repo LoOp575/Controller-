@@ -1,11 +1,13 @@
 "use client";
 
-import { Activity, Settings } from "lucide-react";
+import { Activity, Settings, Zap, TestTube } from "lucide-react";
 import { useControllerStore } from "@/store/useControllerStore";
 import { StatusBadge } from "./StatusBadge";
 
 export function AppHeader() {
   const controllerStatus = useControllerStore((s) => s.controllerStatus);
+  const apiMode = useControllerStore((s) => s.apiMode);
+  const fallbackReason = useControllerStore((s) => s.fallbackReason);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-[#DDEFF0] bg-white/90 backdrop-blur-sm shadow-soft">
@@ -23,9 +25,26 @@ export function AppHeader() {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="rounded-full bg-[#DCEEFF] px-2.5 py-0.5 text-xs font-medium text-sky-700">
-            Demo Mode
-          </span>
+          {/* Mode Badge */}
+          {apiMode === "live" ? (
+            <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 border border-emerald-200">
+              <Zap className="h-3 w-3" />
+              Live GPT
+            </span>
+          ) : apiMode === "mock" ? (
+            <span
+              className="flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 border border-amber-200"
+              title={fallbackReason || "Using mock data"}
+            >
+              <TestTube className="h-3 w-3" />
+              Mock Mode
+            </span>
+          ) : (
+            <span className="rounded-full bg-[#DCEEFF] px-2.5 py-0.5 text-xs font-medium text-sky-700">
+              Ready
+            </span>
+          )}
+
           {controllerStatus !== "idle" && (
             <StatusBadge
               status={

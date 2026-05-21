@@ -25,6 +25,8 @@ interface ControllerState {
   isRunning: boolean;
   selectedResultAgent: string | null;
   error: string | null;
+  apiMode: "live" | "mock" | null;
+  fallbackReason: string | null;
 
   // Actions
   setCommandText: (text: string) => void;
@@ -61,6 +63,8 @@ const initialState = {
   isRunning: false,
   selectedResultAgent: null,
   error: null,
+  apiMode: null as "live" | "mock" | null,
+  fallbackReason: null as string | null,
 };
 
 export const useControllerStore = create<ControllerState>((set, get) => ({
@@ -107,14 +111,22 @@ export const useControllerStore = create<ControllerState>((set, get) => ({
   applyApiResponse: (response: ControllerRunResponse) => {
     const state = get();
 
-    // Update agent statuses based on results
+    // Extract meta info
+    const mode = response._meta?.mode || "mock";
+    const fallbackReason = response._meta?.fallbackReason || null;
+
+    // Update agent statuses based on task assignments and results
+    const assignedAgentIds = new Set(response.tasks.map((t) => t.assignedTo));
+    const resultAgentIds = new Set(response.agentResults.map((r) => r.agentId));
+
     const updatedAgents = state.agents.map((agent) => {
-      const hasResult = response.agentResults.some((r) => r.agentId === agent.id);
-      return {
-        ...agent,
-        status: hasResult ? ("done" as const) : agent.status,
-        lastActive: hasResult ? new Date().toISOString() : agent.lastActive,
-      };
+      if (resultAgentIds.has(agent.id)) {
+        return { ...agent, status: "done" as const, lastActive: new Date().toISOString() };
+      }
+      if (assignedAgentIds.has(agent.id)) {
+        return { ...agent, status: "queued" as const, lastActive: new Date().toISOString() };
+      }
+      return agent;
     });
 
     set({
@@ -129,6 +141,8 @@ export const useControllerStore = create<ControllerState>((set, get) => ({
       activeTaskId: null,
       isRunning: false,
       error: null,
+      apiMode: mode,
+      fallbackReason,
     });
   },
 
