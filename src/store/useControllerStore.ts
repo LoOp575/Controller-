@@ -7,6 +7,7 @@ import {
   OrchestratorPlan,
   Artifact,
   ControllerStatus,
+  ControllerRunResponse,
 } from "@/types";
 import { mockAgents } from "@/lib/mockAgents";
 
@@ -23,6 +24,7 @@ interface ControllerState {
   artifacts: Artifact[];
   isRunning: boolean;
   selectedResultAgent: string | null;
+  error: string | null;
 
   // Actions
   setCommandText: (text: string) => void;
@@ -39,7 +41,10 @@ interface ControllerState {
   setArtifacts: (artifacts: Artifact[]) => void;
   setIsRunning: (running: boolean) => void;
   setSelectedResultAgent: (agentId: string | null) => void;
+  setError: (error: string | null) => void;
   resetController: () => void;
+  applyApiResponse: (response: ControllerRunResponse) => void;
+  runController: (command: string) => Promise<void>;
 }
 
 const initialState = {
@@ -55,9 +60,10 @@ const initialState = {
   artifacts: [],
   isRunning: false,
   selectedResultAgent: null,
+  error: null,
 };
 
-export const useControllerStore = create<ControllerState>((set) => ({
+export const useControllerStore = create<ControllerState>((set, get) => ({
   ...initialState,
 
   setCommandText: (text) => set({ commandText: text }),
@@ -91,9 +97,92 @@ export const useControllerStore = create<ControllerState>((set) => ({
   setArtifacts: (artifacts) => set({ artifacts }),
   setIsRunning: (running) => set({ isRunning: running }),
   setSelectedResultAgent: (agentId) => set({ selectedResultAgent: agentId }),
+  setError: (error) => set({ error }),
   resetController: () =>
     set({
       ...initialState,
       agents: mockAgents,
     }),
+
+  applyApiResponse: (response: ControllerRunResponse) => {
+    const state = get();
+
+    // Update agent statuses based on results
+    const updatedAgents = state.agents.map((agent) => {
+      const hasResult = response.agentResults.some((r) => r.agentId === agent.id);
+      return {
+        ...agent,
+        status: hasResult ? ("done" as const) : agent.status,
+        lastActive: hasResult ? new Date().toISOString() : agent.lastActive,
+      };
+    });
+
+    set({
+      controllerStatus: response.controllerStatus as ControllerStatus,
+      orchestratorPlan: response.orchestratorPlan,
+      tasks: response.tasks,
+      results: response.agentResults,
+      logs: response.activityLogs,
+      finalAnswer: response.finalAnswer,
+      artifacts: response.artifacts,
+      agents: updatedAgents,
+      activeTaskId: null,
+      isRunning: false,
+      error: null,
+    });
+  },
+
+  runController: async (command: string) => {
+    const { resetController, setIsRunning, setControllerStatus, addLog, setError, applyApiResponse } = get();
+
+    // Reset and start
+    resetController();
+    set({ commandText: command });
+    setIsRunning(true);
+    setControllerStatus("planning");
+    setError(null);
+
+    const now = new Date().toLocaleTimeString("en-US", {
+      hour12: false,
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+
+    addLog({ timestamp: now, level: "info", message: "Sending command to GPT Controller API..." });
+    addLog({ timestamp: now, level: "info", message: `Command: "${command.substring(0, 60)}${command.length > 60 ? "..." : ""}"` });
+
+    try {
+      const res = await fetch("/api/controller/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || `API error: ${res.status}`);
+      }
+
+      const data: ControllerRunResponse = await res.json();
+
+      // Apply the full response to the store
+      applyApiResponse(data);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Unknown error occurred";
+      setError(errorMessage);
+      setControllerStatus("error");
+      setIsRunning(false);
+      addLog({
+        timestamp: new Date().toLocaleTimeString("en-US", {
+          hour12: false,
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        }),
+        level: "error",
+        message: `Controller error: ${errorMessage}`,
+      });
+    }
+  },
 }));

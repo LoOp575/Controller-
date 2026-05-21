@@ -27,7 +27,16 @@ export function AppHeader() {
             Demo Mode
           </span>
           {controllerStatus !== "idle" && (
-            <StatusBadge status={controllerStatus === "completed" ? "done" : "running"} size="sm" />
+            <StatusBadge
+              status={
+                controllerStatus === "completed"
+                  ? "done"
+                  : controllerStatus === "error"
+                  ? "error"
+                  : "running"
+              }
+              size="sm"
+            />
           )}
           <button className="flex h-8 w-8 items-center justify-center rounded-lg text-[#94A3B8] transition-colors hover:bg-[#F1FBFB] hover:text-[#0EA5E9]">
             <Settings className="h-4 w-4" />

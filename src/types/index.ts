@@ -73,3 +73,14 @@ export interface Artifact {
   content: string;
   language?: string;
 }
+
+export interface ControllerRunResponse {
+  status: "completed" | "error";
+  controllerStatus: "completed" | "error";
+  orchestratorPlan: OrchestratorPlan;
+  tasks: Task[];
+  agentResults: AgentResult[];
+  activityLogs: ActivityLog[];
+  finalAnswer: string;
+  artifacts: Artifact[];
+}
