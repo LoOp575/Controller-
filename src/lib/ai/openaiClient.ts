@@ -39,27 +39,41 @@ function readEnv(name: string): string | null {
 }
 
 export function getOpenAIApiKey(): string | null {
-  return readEnv("OPENAI_API_KEY") ?? readEnv("OPENAI_COMPATIBLE_API_KEY");
+  // Prefer OpenAI-compatible providers when configured, so old official OpenAI keys
+  // with exhausted quota do not override the user's custom provider.
+  return readEnv("OPENAI_COMPATIBLE_API_KEY") ?? readEnv("OPENAI_API_KEY");
 }
 
 export function getOpenAIBaseUrl(): string {
   return (
-    readEnv("OPENAI_BASE_URL") ??
     readEnv("OPENAI_COMPATIBLE_BASE_URL") ??
+    readEnv("OPENAI_BASE_URL") ??
     "https://api.openai.com/v1"
   ).replace(/\/$/, "");
 }
 
 export function getOpenAIModel(): string {
   return (
-    readEnv("OPENAI_MODEL") ??
     readEnv("OPENAI_COMPATIBLE_MODEL") ??
+    readEnv("OPENAI_MODEL") ??
     "gpt-4o-mini"
   );
 }
 
 export function isOpenAIConfigured(): boolean {
   return getOpenAIApiKey() !== null;
+}
+
+export function getAIProviderDebugInfo() {
+  const baseUrl = getOpenAIBaseUrl();
+  const model = getOpenAIModel();
+
+  return {
+    baseUrl,
+    model,
+    hasCompatibleKey: readEnv("OPENAI_COMPATIBLE_API_KEY") !== null,
+    hasOpenAIKey: readEnv("OPENAI_API_KEY") !== null,
+  };
 }
 
 export async function callOpenAI(params: {
@@ -75,7 +89,7 @@ export async function callOpenAI(params: {
     return {
       success: false,
       error:
-        "AI API key belum diset. Gunakan OPENAI_API_KEY atau OPENAI_COMPATIBLE_API_KEY.",
+        "AI API key belum diset. Gunakan OPENAI_COMPATIBLE_API_KEY atau OPENAI_API_KEY.",
     };
   }
 
@@ -99,7 +113,9 @@ export async function callOpenAI(params: {
       body.response_format = responseFormat;
     }
 
-    const response = await fetch(`${getOpenAIBaseUrl()}/chat/completions`, {
+    const requestUrl = `${getOpenAIBaseUrl()}/chat/completions`;
+
+    const response = await fetch(requestUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -112,7 +128,7 @@ export async function callOpenAI(params: {
       const errorText = await response.text();
       return {
         success: false,
-        error: `AI API error (${response.status}): ${errorText.substring(0, 300)}`,
+        error: `AI API error (${response.status}) using model ${model} at ${requestUrl}: ${errorText.substring(0, 300)}`,
       };
     }
 
