@@ -48,11 +48,18 @@ export const mockAgents: AIProvider[] = [
   },
   {
     id: "kiro_dev_agent",
-    name: "Kiro Dev Agent",
-    role: "Codebase Worker",
-    model: "Kiro",
+    name: "Kiro Heavy Analyst",
+    role: "Heavy Problem Analyst",
+    model: "Kiro Dev",
     status: "standby",
-    capabilities: ["edit code", "refactor", "inspect project"],
+    capabilities: [
+      "deep problem analysis",
+      "root cause analysis",
+      "architecture review",
+      "codebase inspection",
+      "complex debugging plan",
+      "heavy task breakdown"
+    ],
     lastActive: new Date().toISOString(),
   },
   {
