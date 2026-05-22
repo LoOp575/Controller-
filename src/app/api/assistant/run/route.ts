@@ -21,6 +21,12 @@ function now(): string {
   });
 }
 
+function readEnv(name: string): string | null {
+  const value = process.env[name];
+  if (!value || value.trim() === "") return null;
+  return value.trim();
+}
+
 function shouldRunController(message: string): boolean {
   const text = message.toLowerCase();
   return [
@@ -44,6 +50,82 @@ function shouldRunController(message: string): boolean {
     "repo",
     "github",
   ].some((keyword) => text.includes(keyword));
+}
+
+function isAgentStatusRequest(message: string): boolean {
+  const text = message.toLowerCase();
+  return (
+    (text.includes("status") || text.includes("cek")) &&
+    (text.includes("agent") || text.includes("ageng") || text.includes("api") || text.includes("env"))
+  );
+}
+
+function agentEnvStatus(apiKeyName: string, baseUrlName: string, modelName: string) {
+  return {
+    configured: readEnv(apiKeyName) !== null,
+    baseUrl: readEnv(baseUrlName),
+    model: readEnv(modelName),
+  };
+}
+
+function agentStatusResponse(message: string): ControllerRunResponse {
+  const timestamp = now();
+  const status = {
+    provider: {
+      configured: readEnv("OPENAI_COMPATIBLE_API_KEY") !== null,
+      baseUrl: readEnv("OPENAI_COMPATIBLE_BASE_URL"),
+      model: readEnv("OPENAI_COMPATIBLE_MODEL"),
+    },
+    deepseek: agentEnvStatus("DEEPSEEK_API_KEY", "DEEPSEEK_BASE_URL", "DEEPSEEK_MODEL"),
+    hermes: agentEnvStatus("HERMES_API_KEY", "HERMES_BASE_URL", "HERMES_MODEL"),
+    nemotron: agentEnvStatus("NEMOTRON_API_KEY", "NEMOTRON_BASE_URL", "NEMOTRON_MODEL"),
+    kiro: agentEnvStatus("KIRO_API_KEY", "KIRO_BASE_URL", "KIRO_MODEL"),
+    mexc: {
+      spotBaseUrl: readEnv("MEXC_SPOT_BASE_URL") ?? "https://api.mexc.com",
+      contractBaseUrl: readEnv("MEXC_CONTRACT_BASE_URL") ?? "https://contract.mexc.com",
+    },
+    cryptoRank: {
+      configured: readEnv("CRYPTORANK_API_KEY") !== null,
+      baseUrl: readEnv("CRYPTORANK_BASE_URL"),
+    },
+  };
+
+  const formatStatusLine = (name: string, value: { configured?: boolean; baseUrl?: string | null; model?: string | null }) =>
+    `- ${name}: ${value.configured ? "configured" : "not configured"}${value.model ? ` · ${value.model}` : ""}${value.baseUrl ? ` · ${value.baseUrl}` : ""}`;
+
+  const report = `**Agent Status Check**\n\n${formatStatusLine("Provider utama", status.provider)}\n${formatStatusLine("DeepSeek", status.deepseek)}\n${formatStatusLine("Hermes", status.hermes)}\n${formatStatusLine("Nemotron", status.nemotron)}\n${formatStatusLine("Kiro", status.kiro)}\n- MEXC Spot: ${status.mexc.spotBaseUrl}\n- MEXC Contract: ${status.mexc.contractBaseUrl}\n- CryptoRank: ${status.cryptoRank.configured ? "configured" : "not configured"}${status.cryptoRank.baseUrl ? ` · ${status.cryptoRank.baseUrl}` : ""}\n\nCatatan: cek status ini tidak memanggil model AI, jadi tidak akan kena rate limit Hermes/OpenRouter.`;
+
+  const result: AgentResult = {
+    agentId: "status_router",
+    title: "Agent Status Check",
+    content: report,
+    timestamp,
+    status: "success",
+  };
+
+  return {
+    status: "completed",
+    controllerStatus: "completed",
+    orchestratorPlan: {
+      intent: "agent_status_check",
+      priority: "low",
+      controller: "status_router",
+      tasks: [],
+    },
+    tasks: [],
+    agentResults: [result],
+    activityLogs: [
+      { id: "status_1", timestamp, level: "info", message: "Agent Status Router selected" },
+      { id: "status_2", timestamp, level: "success", message: "Agent/env status checked without calling external AI models" },
+    ],
+    finalAnswer: report,
+    artifacts: [
+      { type: "report", title: "Agent Status Report", content: report, language: "markdown" },
+      { type: "json", title: "Agent Status JSON", content: JSON.stringify(status, null, 2), language: "json" },
+      { type: "json", title: "Status Request", content: JSON.stringify({ message }, null, 2), language: "json" },
+    ],
+    _meta: { mode: "live" },
+  };
 }
 
 function chatResponse(message: string, reply: string, fallbackReason?: string): ControllerRunResponse {
@@ -234,6 +316,11 @@ export async function POST(request: NextRequest) {
     }
 
     const { message, mode } = parsed.data;
+
+    if (isAgentStatusRequest(message)) {
+      return NextResponse.json(agentStatusResponse(message), { status: 200 });
+    }
+
     const selectedMode = mode === "auto" ? (isCryptoAnalysisRequest(message) ? "controller" : shouldRunController(message) ? "controller" : "chat") : mode;
 
     if (selectedMode !== "chat" && isCryptoAnalysisRequest(message)) {
