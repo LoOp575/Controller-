@@ -3,6 +3,7 @@ import { z } from "zod";
 import { callOpenAI } from "@/lib/ai/openaiClient";
 import { runGptOrchestrator, GptOrchestratorPlan } from "@/lib/ai/gptOrchestrator";
 import { runAgentTasks } from "@/lib/agents/agentRunner";
+import { detectAgentPingRequest, runAgentPing } from "@/lib/agents/agentPing";
 import { generateControllerMockResponse } from "@/lib/controllerMockResponse";
 import { isCryptoAnalysisRequest, runCryptoAnalysisJob } from "@/lib/crypto/cryptoAnalysisRouter";
 import { ActivityLog, AgentResult, Artifact, ControllerRunResponse, OrchestratorPlan, Task } from "@/types";
@@ -316,6 +317,12 @@ export async function POST(request: NextRequest) {
     }
 
     const { message, mode } = parsed.data;
+
+    const pingAgent = detectAgentPingRequest(message);
+    if (pingAgent) {
+      const pingResponse = await runAgentPing(message, pingAgent);
+      return NextResponse.json(pingResponse, { status: 200 });
+    }
 
     if (isAgentStatusRequest(message)) {
       return NextResponse.json(agentStatusResponse(message), { status: 200 });
