@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { callOpenAI } from "@/lib/ai/openaiClient";
-import { runGptOrchestrator } from "@/lib/ai/gptOrchestrator";
+import { runGptOrchestrator, GptOrchestratorPlan } from "@/lib/ai/gptOrchestrator";
 import { runAgentTasks } from "@/lib/agents/agentRunner";
 import { generateControllerMockResponse } from "@/lib/controllerMockResponse";
 import { isCryptoAnalysisRequest, runCryptoAnalysisJob } from "@/lib/crypto/cryptoAnalysisRouter";
@@ -156,7 +156,7 @@ function cryptoResponse(message: string, cryptoJob: Awaited<ReturnType<typeof ru
   };
 }
 
-function controllerBaseResponse(command: string, plan: Awaited<ReturnType<typeof runGptOrchestrator>> extends { success: true; plan: infer P } ? P : never): ControllerRunResponse {
+function controllerBaseResponse(command: string, plan: GptOrchestratorPlan): ControllerRunResponse {
   const timestamp = now();
   const tasks: Task[] = plan.tasks.map((task) => ({
     id: task.id,
