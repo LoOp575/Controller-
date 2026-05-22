@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { runGptOrchestrator, GptOrchestratorPlan } from "@/lib/ai/gptOrchestrator";
 import { generateControllerMockResponse } from "@/lib/controllerMockResponse";
+import { runAgentTasks } from "@/lib/agents/agentRunner";
 import {
   Task,
   AgentResult,
@@ -24,28 +25,22 @@ function formatTime(): string {
   });
 }
 
-/**
- * Convert GPT orchestrator plan into the full ControllerRunResponse
- * that the frontend expects.
- */
-function buildResponseFromGptPlan(
+function buildBaseResponseFromGptPlan(
   command: string,
   plan: GptOrchestratorPlan
 ): ControllerRunResponse {
   const now = formatTime();
 
-  // Convert GPT tasks to dashboard Task format
   const tasks: Task[] = plan.tasks.map((t) => ({
     id: t.id,
     title: t.title,
     assignedTo: t.agent,
-    status: "queued" as const,
-    progress: 0,
+    status: "done" as const,
+    progress: 100,
     dependsOn: t.dependsOn,
     outputPreview: t.reason,
   }));
 
-  // Convert to OrchestratorPlan format (dashboard display)
   const orchestratorPlan: OrchestratorPlan = {
     intent: plan.intent,
     priority: plan.priority,
@@ -54,11 +49,10 @@ function buildResponseFromGptPlan(
       id: t.id,
       agent: t.agent,
       action: t.action,
-      status: t.status,
+      status: "done",
     })),
   };
 
-  // Generate activity logs
   const activityLogs: ActivityLog[] = [
     { id: "log_1", timestamp: now, level: "info", message: "GPT Orchestrator received user command" },
     { id: "log_2", timestamp: now, level: "info", message: `Command: "${command.substring(0, 60)}${command.length > 60 ? "..." : ""}"` },
@@ -71,10 +65,8 @@ function buildResponseFromGptPlan(
       level: "info" as const,
       message: `Task assigned: ${t.title} → ${t.agent}`,
     })),
-    { id: "log_final", timestamp: now, level: "success", message: "GPT Orchestrator plan ready. Awaiting execution." },
   ];
 
-  // GPT result as the orchestrator's own output
   const agentResults: AgentResult[] = [
     {
       agentId: "gpt_orchestrator",
@@ -85,48 +77,12 @@ function buildResponseFromGptPlan(
     },
   ];
 
-  // Final answer is the summary + final response plan
-  const finalAnswer = `**GPT Orchestrator Plan Ready**
-
-**Summary:**
-${plan.summary}
-
-**Intent:** ${plan.intent}
-**Priority:** ${plan.priority}
-**Tasks:** ${plan.tasks.length} tasks assigned
-
-**Task Assignments:**
-${plan.tasks.map((t) => `- ${t.title} → ${t.agent.replace(/_/g, " ")}`).join("\n")}
-
-**Final Response Plan:**
-${plan.finalResponsePlan}
-
-${plan.tasks.some((t) => t.needsApproval) ? "\n⚠️ Beberapa task membutuhkan approval sebelum dieksekusi." : ""}`;
-
-  // Artifacts
   const artifacts: Artifact[] = [
     {
       type: "json",
       title: "GPT Orchestrator Plan (Live)",
       content: JSON.stringify(plan, null, 2),
       language: "json",
-    },
-    {
-      type: "report",
-      title: "Task Assignment Report",
-      content: `## Task Plan Report (Live GPT)
-
-**Intent:** ${plan.intent}
-**Priority:** ${plan.priority}
-**Total Tasks:** ${plan.tasks.length}
-**Needs Approval:** ${plan.tasks.filter((t) => t.needsApproval).length}
-
-### Task Breakdown:
-${plan.tasks.map((t) => `| ${t.id} | ${t.title} | ${t.agent} | ${t.action} | ${t.needsApproval ? "⚠️ Approval" : "Auto"} |`).join("\n")}
-
-### Final Response Plan:
-${plan.finalResponsePlan}`,
-      language: "markdown",
     },
   ];
 
@@ -137,7 +93,7 @@ ${plan.finalResponsePlan}`,
     tasks,
     agentResults,
     activityLogs,
-    finalAnswer,
+    finalAnswer: plan.finalResponsePlan,
     artifacts,
   };
 }
@@ -145,7 +101,6 @@ ${plan.finalResponsePlan}`,
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-
     const parsed = RequestSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -160,24 +115,41 @@ export async function POST(request: NextRequest) {
     }
 
     const { command } = parsed.data;
-
-    // Try real GPT Orchestrator
     const gptResult = await runGptOrchestrator(command);
 
     if (gptResult.success) {
-      // Real GPT response - build full response from plan
-      const response = buildResponseFromGptPlan(command, gptResult.plan);
+      const baseResponse = buildBaseResponseFromGptPlan(command, gptResult.plan);
+      const runner = await runAgentTasks(command, gptResult.plan.tasks);
+
+      const artifacts: Artifact[] = [
+        ...baseResponse.artifacts,
+        {
+          type: "json",
+          title: "Agent Results (Live)",
+          content: JSON.stringify(runner.results, null, 2),
+          language: "json",
+        },
+        {
+          type: "report",
+          title: "Aggregated Agent Report",
+          content: runner.finalAnswer,
+          language: "markdown",
+        },
+      ];
 
       return NextResponse.json(
         {
-          ...response,
-          _meta: { mode: "live", model: "gpt-4o-mini" },
+          ...baseResponse,
+          agentResults: [...baseResponse.agentResults, ...runner.results],
+          activityLogs: [...baseResponse.activityLogs, ...runner.activityLogs],
+          finalAnswer: runner.finalAnswer,
+          artifacts,
+          _meta: { mode: "live" },
         },
         { status: 200 }
       );
     }
 
-    // Fallback to mock response
     const mockResponse = generateControllerMockResponse(command);
 
     return NextResponse.json(
@@ -190,11 +162,13 @@ export async function POST(request: NextRequest) {
       },
       { status: 200 }
     );
-  } catch {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+
     return NextResponse.json(
       {
         status: "error",
-        message: "Internal server error. Failed to process controller command.",
+        message: `Internal server error. Failed to process controller command: ${message}`,
       },
       { status: 500 }
     );
