@@ -16,8 +16,11 @@ export interface CryptoAnalysisResult {
 }
 
 function normalizeSymbol(input: string): string {
-  const match = input.toUpperCase().match(/[A-Z0-9]{2,15}(USDT|USDC|USD)?/);
-  const symbol = match?.[0] ?? "BTCUSDT";
+  const explicitPair = input.toUpperCase().match(/\b[A-Z0-9]{2,15}(USDT|USDC|USD)\b/);
+  if (explicitPair) return explicitPair[0];
+
+  const afterKeyword = input.toUpperCase().match(/(?:ANALISIS|ANALYZE|CEK|CHECK)\s+([A-Z0-9]{2,12})\b/);
+  const symbol = afterKeyword?.[1] ?? "BTC";
 
   if (symbol.endsWith("USDT") || symbol.endsWith("USDC") || symbol.endsWith("USD")) {
     return symbol;
@@ -40,24 +43,40 @@ function extractInterval(input: string): string {
 
 export function isCryptoAnalysisRequest(message: string): boolean {
   const text = message.toLowerCase();
-  const hasCryptoWord = [
-    "crypto",
-    "koin",
-    "coin",
-    "token",
+  const hasExplicitPair = /\b[A-Z0-9]{2,15}(USDT|USDC|USD)\b/.test(message.toUpperCase());
+  const hasTradingIntent = [
     "entry",
     "tp",
     "sl",
     "stop loss",
-    "analisis",
-    "futures",
-    "mexc",
-    "volume",
+    "take profit",
     "funding",
+    "futures",
+    "ohlcv",
+    "candle",
+    "volume",
+    "support",
+    "resistance",
   ].some((keyword) => text.includes(keyword));
 
-  const hasSymbol = /\b[A-Z0-9]{2,15}(USDT|USDC|USD)\b/.test(message.toUpperCase());
-  return hasCryptoWord || hasSymbol;
+  const hasCryptoContext = [
+    "crypto",
+    "koin",
+    "coin",
+    "token",
+    "mexc",
+    "cryptorank",
+    "btc",
+    "eth",
+    "sol",
+    "bnb",
+    "xrp",
+    "doge",
+  ].some((keyword) => text.includes(keyword));
+
+  // Jangan route semua kata "analisis" ke crypto. Harus ada pair jelas,
+  // atau kombinasi konteks crypto + niat trading.
+  return hasExplicitPair || (hasCryptoContext && hasTradingIntent);
 }
 
 function buildReport(symbol: string, interval: string, technical: ReturnType<typeof buildTechnicalSnapshot>) {
