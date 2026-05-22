@@ -4,6 +4,7 @@ import { callOpenAI } from "@/lib/ai/openaiClient";
 import { runGptOrchestrator } from "@/lib/ai/gptOrchestrator";
 import { runAgentTasks } from "@/lib/agents/agentRunner";
 import { generateControllerMockResponse } from "@/lib/controllerMockResponse";
+import { isCryptoAnalysisRequest, runCryptoAnalysisJob } from "@/lib/crypto/cryptoAnalysisRouter";
 import { ActivityLog, AgentResult, Artifact, ControllerRunResponse, OrchestratorPlan, Task } from "@/types";
 
 const RequestSchema = z.object({
@@ -76,6 +77,82 @@ function chatResponse(message: string, reply: string, fallbackReason?: string): 
       { type: "json", title: "Chat Request", content: JSON.stringify({ message }, null, 2), language: "json" },
     ],
     _meta: fallbackReason ? { mode: "mock", fallbackReason } : { mode: "live" },
+  };
+}
+
+function cryptoResponse(message: string, cryptoJob: Awaited<ReturnType<typeof runCryptoAnalysisJob>>): ControllerRunResponse {
+  const timestamp = now();
+
+  return {
+    status: "completed",
+    controllerStatus: "completed",
+    orchestratorPlan: {
+      intent: "crypto_analysis_job",
+      priority: "high",
+      controller: "crypto_router",
+      tasks: [
+        { id: "crypto_1", agent: "mexc_market_worker", action: "fetch_ohlcv_ticker_funding", status: "done" },
+        { id: "crypto_2", agent: "cryptorank_context_worker", action: "fetch_market_context", status: "done" },
+        { id: "crypto_3", agent: "technical_calculator", action: "calculate_ema_rsi_support_resistance", status: "done" },
+        { id: "crypto_4", agent: "chart_renderer", action: "build_entry_tp_sl_chart_payload", status: "done" },
+      ],
+    },
+    tasks: [
+      {
+        id: "crypto_1",
+        title: "Fetch MEXC market data",
+        assignedTo: "mexc_market_worker",
+        status: "done",
+        progress: 100,
+        dependsOn: [],
+        outputPreview: `Fetched ${cryptoJob.symbol} ${cryptoJob.interval} candles, ticker and funding data`,
+      },
+      {
+        id: "crypto_2",
+        title: "Fetch CryptoRank context",
+        assignedTo: "cryptorank_context_worker",
+        status: "done",
+        progress: 100,
+        dependsOn: [],
+        outputPreview: "Fetched token context if CryptoRank env is configured",
+      },
+      {
+        id: "crypto_3",
+        title: "Calculate technical setup",
+        assignedTo: "technical_calculator",
+        status: "done",
+        progress: 100,
+        dependsOn: ["crypto_1"],
+        outputPreview: `Score ${cryptoJob.technical.score}/100, trend ${cryptoJob.technical.trend}`,
+      },
+      {
+        id: "crypto_4",
+        title: "Build chart entry plan",
+        assignedTo: "chart_renderer",
+        status: "done",
+        progress: 100,
+        dependsOn: ["crypto_3"],
+        outputPreview: `Entry ${cryptoJob.technical.entryLow}-${cryptoJob.technical.entryHigh}, TP ${cryptoJob.technical.tp1}/${cryptoJob.technical.tp2}, SL ${cryptoJob.technical.stopLoss}`,
+      },
+    ],
+    agentResults: [
+      {
+        agentId: "crypto_router",
+        title: `${cryptoJob.symbol} Crypto Analysis Result`,
+        content: cryptoJob.report,
+        timestamp,
+        status: "success",
+      },
+    ],
+    activityLogs: [
+      { id: "crypto_log_1", timestamp, level: "info", message: "Crypto Analysis Router selected" },
+      { id: "crypto_log_2", timestamp, level: "success", message: `MEXC data fetched for ${cryptoJob.symbol}` },
+      { id: "crypto_log_3", timestamp, level: "success", message: `Technical score calculated: ${cryptoJob.technical.score}/100` },
+      { id: "crypto_log_4", timestamp, level: "success", message: "Chart annotation payload generated" },
+    ],
+    finalAnswer: cryptoJob.report,
+    artifacts: cryptoJob.artifacts,
+    _meta: { mode: "live" },
   };
 }
 
@@ -157,7 +234,12 @@ export async function POST(request: NextRequest) {
     }
 
     const { message, mode } = parsed.data;
-    const selectedMode = mode === "auto" ? (shouldRunController(message) ? "controller" : "chat") : mode;
+    const selectedMode = mode === "auto" ? (isCryptoAnalysisRequest(message) ? "controller" : shouldRunController(message) ? "controller" : "chat") : mode;
+
+    if (selectedMode !== "chat" && isCryptoAnalysisRequest(message)) {
+      const cryptoJob = await runCryptoAnalysisJob(message);
+      return NextResponse.json(cryptoResponse(message, cryptoJob), { status: 200 });
+    }
 
     if (selectedMode === "chat") {
       const chat = await runFreeChat(message);
