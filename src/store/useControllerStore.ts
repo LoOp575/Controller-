@@ -11,8 +11,11 @@ import {
 } from "@/types";
 import { mockAgents } from "@/lib/mockAgents";
 
+export type AssistantMode = "auto" | "chat" | "controller";
+
 interface ControllerState {
   commandText: string;
+  assistantMode: AssistantMode;
   controllerStatus: ControllerStatus;
   agents: AIProvider[];
   tasks: Task[];
@@ -28,8 +31,8 @@ interface ControllerState {
   apiMode: "live" | "mock" | null;
   fallbackReason: string | null;
 
-  // Actions
   setCommandText: (text: string) => void;
+  setAssistantMode: (mode: AssistantMode) => void;
   setControllerStatus: (status: ControllerStatus) => void;
   setAgents: (agents: AIProvider[]) => void;
   updateAgentStatus: (agentId: string, status: AIProvider["status"]) => void;
@@ -51,6 +54,7 @@ interface ControllerState {
 
 const initialState = {
   commandText: "",
+  assistantMode: "auto" as AssistantMode,
   controllerStatus: "idle" as ControllerStatus,
   agents: mockAgents,
   tasks: [],
@@ -71,6 +75,7 @@ export const useControllerStore = create<ControllerState>((set, get) => ({
   ...initialState,
 
   setCommandText: (text) => set({ commandText: text }),
+  setAssistantMode: (mode) => set({ assistantMode: mode }),
   setControllerStatus: (status) => set({ controllerStatus: status }),
   setAgents: (agents) => set({ agents }),
   updateAgentStatus: (agentId, status) =>
@@ -102,20 +107,20 @@ export const useControllerStore = create<ControllerState>((set, get) => ({
   setIsRunning: (running) => set({ isRunning: running }),
   setSelectedResultAgent: (agentId) => set({ selectedResultAgent: agentId }),
   setError: (error) => set({ error }),
-  resetController: () =>
+  resetController: () => {
+    const mode = get().assistantMode;
     set({
       ...initialState,
+      assistantMode: mode,
       agents: mockAgents,
-    }),
+    });
+  },
 
   applyApiResponse: (response: ControllerRunResponse) => {
     const state = get();
-
-    // Extract meta info
     const mode = response._meta?.mode || "mock";
     const fallbackReason = response._meta?.fallbackReason || null;
 
-    // Update agent statuses based on task assignments and results
     const assignedAgentIds = new Set(response.tasks.map((t) => t.assignedTo));
     const resultAgentIds = new Set(response.agentResults.map((r) => r.agentId));
 
@@ -147,13 +152,20 @@ export const useControllerStore = create<ControllerState>((set, get) => ({
   },
 
   runController: async (command: string) => {
-    const { resetController, setIsRunning, setControllerStatus, addLog, setError, applyApiResponse } = get();
+    const {
+      resetController,
+      setIsRunning,
+      setControllerStatus,
+      addLog,
+      setError,
+      applyApiResponse,
+    } = get();
+    const selectedMode = get().assistantMode;
 
-    // Reset and start
     resetController();
     set({ commandText: command });
     setIsRunning(true);
-    setControllerStatus("planning");
+    setControllerStatus(selectedMode === "chat" ? "routing" : "planning");
     setError(null);
 
     const now = new Date().toLocaleTimeString("en-US", {
@@ -163,14 +175,22 @@ export const useControllerStore = create<ControllerState>((set, get) => ({
       second: "2-digit",
     });
 
-    addLog({ timestamp: now, level: "info", message: "Sending command to GPT Controller API..." });
-    addLog({ timestamp: now, level: "info", message: `Command: "${command.substring(0, 60)}${command.length > 60 ? "..." : ""}"` });
+    addLog({
+      timestamp: now,
+      level: "info",
+      message: `Sending message to Hybrid Assistant API (${selectedMode} mode)...`,
+    });
+    addLog({
+      timestamp: now,
+      level: "info",
+      message: `Message: "${command.substring(0, 60)}${command.length > 60 ? "..." : ""}"`,
+    });
 
     try {
-      const res = await fetch("/api/controller/run", {
+      const res = await fetch("/api/assistant/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ command }),
+        body: JSON.stringify({ message: command, mode: selectedMode }),
       });
 
       if (!res.ok) {
@@ -179,8 +199,6 @@ export const useControllerStore = create<ControllerState>((set, get) => ({
       }
 
       const data: ControllerRunResponse = await res.json();
-
-      // Apply the full response to the store
       applyApiResponse(data);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error occurred";
@@ -195,7 +213,7 @@ export const useControllerStore = create<ControllerState>((set, get) => ({
           second: "2-digit",
         }),
         level: "error",
-        message: `Controller error: ${errorMessage}`,
+        message: `Assistant error: ${errorMessage}`,
       });
     }
   },
