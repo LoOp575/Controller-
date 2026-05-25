@@ -3,10 +3,12 @@ import { z } from "zod";
 export const BuyerSearchParamsSchema = z.object({
   commodity: z.string().min(1, "Komoditas wajib diisi"),
   city: z.string().min(1, "Kota/wilayah wajib diisi"),
+  province: z.string().default(""),
   category: z.string().default(""),
   stock: z.number().min(0).default(0),
   price: z.number().min(0).default(0),
   unit: z.string().default("kg"),
+  radius: z.number().optional(),
 });
 
 export const OutreachRequestSchema = z.object({

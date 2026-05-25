@@ -104,7 +104,9 @@ export type BuyerCategory =
   | "pasar_induk"
   | "umkm_makanan"
   | "produsen_keripik"
-  | "pabrik_tepung_tapioka";
+  | "pabrik_tepung_tapioka"
+  | "toko_beras"
+  | "supplier_rempah";
 
 export const BUYER_CATEGORIES: { value: BuyerCategory; label: string }[] = [
   { value: "pabrik_jamu", label: "Pabrik Jamu" },
@@ -118,6 +120,8 @@ export const BUYER_CATEGORIES: { value: BuyerCategory; label: string }[] = [
   { value: "umkm_makanan", label: "UMKM Makanan" },
   { value: "produsen_keripik", label: "Produsen Keripik" },
   { value: "pabrik_tepung_tapioka", label: "Pabrik Tepung/Tapioka" },
+  { value: "toko_beras", label: "Toko Beras" },
+  { value: "supplier_rempah", label: "Supplier Rempah" },
 ];
 
 export type LeadStatus =
@@ -147,8 +151,10 @@ export interface Buyer {
   category: BuyerCategory;
   commodity: string;
   city: string;
+  province: string;
   address: string;
   phone: string;
+  email: string;
   website: string;
   rating: number;
   source: string;
@@ -174,10 +180,18 @@ export interface Commodity {
 export interface BuyerSearchParams {
   commodity: string;
   city: string;
+  province: string;
   category: string;
   stock: number;
   price: number;
   unit: string;
+  radius?: number;
+}
+
+export interface BuyerScoreResult {
+  score: number;
+  level: "Prioritas tinggi" | "Potensial" | "Rendah";
+  reason: string;
 }
 
 export interface BuyerSearchResult {

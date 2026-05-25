@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Buyer } from "@/types";
-
-let leadsStore: Buyer[] = [];
+import { saveLead, getMemoryLeads, updateLeadStatus } from "@/lib/tools/saveLeadTool";
 
 export async function GET() {
-  return NextResponse.json({ leads: leadsStore, total: leadsStore.length });
+  const leads = getMemoryLeads();
+  return NextResponse.json({ leads, total: leads.length });
 }
 
 export async function POST(request: NextRequest) {
@@ -13,13 +13,15 @@ export async function POST(request: NextRequest) {
     const buyer: Buyer = {
       ...body,
       id: body.id || Math.random().toString(36).substring(2, 11),
+      province: body.province || "",
+      email: body.email || "Tidak tersedia",
       status: body.status || "baru_ditemukan",
       created_at: body.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    const idx = leadsStore.findIndex((l) => l.id === buyer.id);
-    if (idx >= 0) leadsStore[idx] = buyer; else leadsStore.push(buyer);
-    return NextResponse.json({ success: true, lead: buyer });
+
+    const result = await saveLead(buyer);
+    return NextResponse.json({ success: result.success, lead: buyer, mode: result.mode });
   } catch {
     return NextResponse.json({ error: "Gagal menyimpan lead." }, { status: 500 });
   }
@@ -28,10 +30,11 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const { buyer_id, status } = await request.json();
-    const idx = leadsStore.findIndex((l) => l.id === buyer_id);
-    if (idx < 0) return NextResponse.json({ error: "Lead tidak ditemukan." }, { status: 404 });
-    leadsStore[idx] = { ...leadsStore[idx], status, updated_at: new Date().toISOString() };
-    return NextResponse.json({ success: true, lead: leadsStore[idx] });
+    const updated = updateLeadStatus(buyer_id, status);
+    if (!updated) {
+      return NextResponse.json({ error: "Lead tidak ditemukan." }, { status: 404 });
+    }
+    return NextResponse.json({ success: true, lead: updated });
   } catch {
     return NextResponse.json({ error: "Gagal update lead." }, { status: 500 });
   }

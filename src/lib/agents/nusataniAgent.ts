@@ -41,7 +41,7 @@ function parseSearchFromMessage(message: string): BuyerSearchParams {
   else if (text.includes("hotel")) category = "hotel";
   else if (text.includes("pasar induk")) category = "pasar_induk";
 
-  return { commodity, city: city.charAt(0).toUpperCase() + city.slice(1), category, stock: 0, price: 0, unit: "kg" };
+  return { commodity, city: city.charAt(0).toUpperCase() + city.slice(1), category, province: "", stock: 0, price: 0, unit: "kg" };
 }
 
 /** Run NusaTani buyer search from chat command */
