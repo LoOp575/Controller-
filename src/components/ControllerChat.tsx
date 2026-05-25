@@ -1,36 +1,26 @@
 "use client";
 
-import { Send, Sparkles, Loader2, MessageCircle, Workflow, Wand2 } from "lucide-react";
-import { AssistantMode, useControllerStore } from "@/store/useControllerStore";
+import { Send, Leaf, Loader2 } from "lucide-react";
+import { useControllerStore } from "@/store/useControllerStore";
 
 const exampleCommands = [
   "Cari buyer jahe di Bandung",
   "Cari pembeli beras di Garut",
-  "Buat pesan WA untuk buyer kencur",
-  "Bro jelaskan status agent saya",
-  "Bagi tugas ke DeepSeek dan Hermes",
-];
-
-const modeOptions: { value: AssistantMode; label: string; icon: typeof Wand2; help: string }[] = [
-  { value: "auto", label: "Auto", icon: Wand2, help: "Ngobrol bebas atau kerja agent otomatis" },
-  { value: "chat", label: "Chat", icon: MessageCircle, help: "Paksa ngobrol bebas" },
-  { value: "controller", label: "Controller", icon: Workflow, help: "Paksa jalankan task agent" },
+  "Cari pabrik jamu untuk kencur",
+  "Cari distributor singkong di Jakarta",
+  "Buat pesan WA untuk buyer kunyit",
 ];
 
 export function ControllerChat() {
   const {
     commandText,
     setCommandText,
-    assistantMode,
-    setAssistantMode,
     isRunning,
     error,
     runController,
     fallbackReason,
     apiMode,
   } = useControllerStore();
-
-  const activeMode = modeOptions.find((mode) => mode.value === assistantMode) ?? modeOptions[0];
 
   const handleSend = () => {
     if (!commandText.trim() || isRunning) return;
@@ -49,45 +39,21 @@ export function ControllerChat() {
   };
 
   return (
-    <div className="rounded-2xl border border-[#DDEFF0] bg-white p-4 shadow-card">
+    <div className="rounded-2xl border border-[#DDEFF0] bg-white p-4 shadow-sm">
       <div className="mb-3 flex items-center gap-2">
-        <Sparkles className="h-4 w-4 text-[#18BEEA]" />
+        <Leaf className="h-4 w-4 text-emerald-600" />
         <div>
           <h2 className="text-sm font-semibold text-[#0F172A]">
-            Hybrid Assistant
+            Buyer Command
           </h2>
-          <p className="text-[11px] text-[#94A3B8]">{activeMode.help}</p>
+          <p className="text-[11px] text-[#94A3B8]">Ketik perintah untuk mencari buyer</p>
         </div>
         {isRunning && (
-          <span className="ml-auto flex items-center gap-1.5 text-xs text-[#18BEEA]">
+          <span className="ml-auto flex items-center gap-1.5 text-xs text-emerald-600">
             <Loader2 className="h-3 w-3 animate-spin" />
-            Processing...
+            Mencari...
           </span>
         )}
-      </div>
-
-      <div className="mb-3 grid grid-cols-3 gap-1.5 rounded-xl bg-[#F1FBFB] p-1">
-        {modeOptions.map((mode) => {
-          const Icon = mode.icon;
-          const isActive = assistantMode === mode.value;
-
-          return (
-            <button
-              key={mode.value}
-              onClick={() => setAssistantMode(mode.value)}
-              disabled={isRunning}
-              className={`flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-medium transition-all disabled:opacity-50 ${
-                isActive
-                  ? "bg-[#18BEEA] text-white shadow-sm"
-                  : "text-[#334155] hover:bg-white"
-              }`}
-              title={mode.help}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {mode.label}
-            </button>
-          );
-        })}
       </div>
 
       <div className="relative">
@@ -95,15 +61,15 @@ export function ControllerChat() {
           value={commandText}
           onChange={(e) => setCommandText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ngobrol bebas atau kasih kerjaan ke agent..."
-          className="w-full resize-none rounded-xl border border-[#DDEFF0] bg-[#F1FBFB] px-4 py-3 pr-12 text-sm text-[#334155] placeholder-[#94A3B8] outline-none transition-colors focus:border-[#18BEEA] focus:ring-2 focus:ring-[#18BEEA]/20"
-          rows={3}
+          placeholder="Contoh: Cari buyer jahe di Bandung"
+          className="w-full resize-none rounded-xl border border-[#DDEFF0] bg-[#F1FBFB] px-4 py-3 pr-12 text-sm text-[#334155] placeholder-[#94A3B8] outline-none transition-colors focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+          rows={2}
           disabled={isRunning}
         />
         <button
           onClick={handleSend}
           disabled={isRunning || !commandText.trim()}
-          className="absolute bottom-3 right-3 flex h-8 w-8 items-center justify-center rounded-lg bg-[#18BEEA] text-white shadow-sm transition-all hover:bg-[#0EA5E9] disabled:cursor-not-allowed disabled:opacity-40"
+          className="absolute bottom-3 right-3 flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-sm transition-all hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {isRunning ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -131,7 +97,7 @@ export function ControllerChat() {
             key={cmd}
             onClick={() => handleExampleClick(cmd)}
             disabled={isRunning}
-            className="rounded-lg bg-[#EAF8F8] px-2.5 py-1 text-xs text-[#0EA5E9] transition-colors hover:bg-[#DCEEFF] disabled:opacity-50"
+            className="rounded-lg bg-emerald-50 px-2.5 py-1 text-xs text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50 border border-emerald-100"
           >
             {cmd}
           </button>
