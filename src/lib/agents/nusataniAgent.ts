@@ -93,9 +93,17 @@ export async function runNusaTaniBuyerJob(message: string): Promise<ControllerRu
   const { buyers, mode } = await searchBuyers(params);
   const topBuyers = buyers.slice(0, 5);
 
-  const buyerList = topBuyers.map((b, i) => `${i + 1}. **${b.name}** (Score: ${b.buyer_score})\n   ${b.category.replace(/_/g, " ")} · ${b.city}\n   ${b.phone !== "kontak tidak tersedia" ? b.phone : "Kontak belum tersedia"}\n   _${b.ai_notes}_`).join("\n\n");
+  // Natural conversational reply
+  const categoryHint = params.category ? params.category.replace(/_/g, " ") : "semua kategori";
+  const report = `Siap bro, gua bantu cari buyer ${params.commodity} di ${params.city}. Untuk ${params.commodity}, target paling cocok adalah ${categoryHint !== "semua kategori" ? categoryHint : "pabrik, distributor, dan grosir terkait"} karena peluang repeat order lebih besar.
 
-  const report = `**Hasil Pencarian Buyer ${params.commodity} di ${params.city}**\n\nDitemukan ${buyers.length} calon buyer. Top 5:\n\n${buyerList}\n\n---\nMode: ${mode === "live" ? "Google Places" : "Mock Data"}\nTip: Buka halaman Buyer Finder untuk fitur lengkap (simpan lead, buat pesan WA).`;
+Gua udah nemuin ${buyers.length} calon buyer dan diprioritaskan berdasarkan Buyer Score tertinggi dulu.
+
+Komoditas: ${params.commodity}
+Wilayah: ${params.city}
+Kategori prioritas: ${categoryHint}
+Insight: Buyer dengan score 75+ punya potensi tinggi untuk jadi pelanggan tetap.
+Next action: Cek detail buyer di bawah, simpan yang cocok, atau buat pesan WA langsung.`;
 
   const results: AgentResult[] = [
     { agentId: "nusatani_agent", title: `NusaTani AI - Buyer Search: ${params.commodity} di ${params.city}`, content: report, timestamp, status: "success" },
