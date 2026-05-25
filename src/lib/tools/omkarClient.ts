@@ -44,7 +44,7 @@ function buildOmkarQueries(params: BuyerSearchParams): string[] {
   }
 
   // Deduplicate
-  return [...new Set(queries)];
+  return queries.filter((q, i) => queries.indexOf(q) === i);
 }
 
 interface OmkarPlace {
