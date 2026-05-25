@@ -173,9 +173,18 @@ async function searchGooglePlaces(params: BuyerSearchParams): Promise<Buyer[] | 
 }
 
 // ─── Main Search Function ─────────────────────────────────────────────────
+// Priority: 1. Omkar API  2. Google Places  3. Mock data
 
 export async function searchBuyers(params: BuyerSearchParams): Promise<{ buyers: Buyer[]; mode: "live" | "mock" }> {
-  const live = await searchGooglePlaces(params);
-  if (live && live.length > 0) return { buyers: live, mode: "live" };
+  // 1. Try Omkar API first
+  const { searchOmkar } = await import("./omkarClient");
+  const omkarResults = await searchOmkar(params);
+  if (omkarResults && omkarResults.length > 0) return { buyers: omkarResults, mode: "live" };
+
+  // 2. Try Google Places
+  const googleResults = await searchGooglePlaces(params);
+  if (googleResults && googleResults.length > 0) return { buyers: googleResults, mode: "live" };
+
+  // 3. Fallback to mock data
   return { buyers: generateMockBuyers(params), mode: "mock" };
 }
