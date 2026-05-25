@@ -96,6 +96,9 @@ export function BuyerResults() {
           <div className="divide-y divide-gray-50">
             {buyers.map((buyer) => {
               const msg = messages[buyer.id] || buyer.outreach_message || "";
+              const hasPhone = buyer.phone && !["-", "kontak tidak tersedia", "Tidak tersedia"].includes(buyer.phone);
+              const hasEmail = buyer.email && !["-", "kontak tidak tersedia", "Tidak tersedia"].includes(buyer.email);
+              const hasWebsite = buyer.website && !["-", "kontak tidak tersedia", "Tidak tersedia"].includes(buyer.website);
               return (
                 <div key={buyer.id} className="px-4 py-3 hover:bg-[#F8FCFC] transition-colors">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -107,9 +110,9 @@ export function BuyerResults() {
                       <p className="text-xs text-gray-500 mt-0.5">{buyer.category.replace(/_/g, " ")} · {buyer.commodity}</p>
                       <p className="text-xs text-gray-400 mt-0.5">{buyer.address || buyer.city}</p>
                       <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
-                        <p className="text-gray-500">Tel: {buyer.phone && buyer.phone !== "kontak tidak tersedia" ? <span className="text-emerald-700">{buyer.phone}</span> : <span className="text-gray-400 italic">Tidak tersedia</span>}</p>
-                        <p className="text-gray-500">Email: <span className="text-gray-400 italic">Tidak tersedia</span></p>
-                        <p className="text-gray-500">Website: {buyer.website && buyer.website !== "-" ? buyer.website : <span className="text-gray-400 italic">Tidak tersedia</span>}</p>
+                        <p className="text-gray-500">Tel: {hasPhone ? <span className="text-emerald-700">{buyer.phone}</span> : <span className="text-gray-400 italic">Tidak tersedia</span>}</p>
+                        <p className="text-gray-500">Email: {hasEmail ? <span className="text-emerald-700">{buyer.email}</span> : <span className="text-gray-400 italic">Tidak tersedia</span>}</p>
+                        <p className="text-gray-500">Website: {hasWebsite ? <span className="text-emerald-700 break-all">{buyer.website}</span> : <span className="text-gray-400 italic">Tidak tersedia</span>}</p>
                         <p className="text-gray-500">Rating: {buyer.rating > 0 ? `⭐ ${buyer.rating}` : <span className="text-gray-400 italic">-</span>}</p>
                       </div>
                       {buyer.ai_notes && <p className="mt-1.5 text-[11px] text-emerald-700 italic bg-emerald-50 rounded px-2 py-1 inline-block">{buyer.ai_notes}</p>}
@@ -130,7 +133,7 @@ export function BuyerResults() {
             })}
           </div>
           <div className="px-4 py-2 border-t border-[#DDEFF0] bg-[#F8FCFC]">
-            <p className="text-[10px] text-gray-400 italic">Ini contoh hasil awal/demo data, nanti bisa diganti data real dari API.</p>
+            <p className="text-[10px] text-gray-400 italic">Jika sumber buyer belum terhubung, sistem tetap memakai demo/mock fallback.</p>
           </div>
         </div>
       )}
