@@ -41,7 +41,7 @@ function getOmkarEndpoints(): string[] {
     endpoints.push(...DEFAULT_OMKAR_MAPS_ENDPOINTS);
   }
 
-  return [...new Set(endpoints.filter(Boolean))];
+  return endpoints.filter((e, i) => Boolean(e) && endpoints.indexOf(e) === i);
 }
 
 /**
