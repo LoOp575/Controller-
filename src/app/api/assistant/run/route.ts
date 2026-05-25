@@ -4,6 +4,7 @@ import { callOpenAI } from "@/lib/ai/openaiClient";
 import { runGptOrchestrator, GptOrchestratorPlan } from "@/lib/ai/gptOrchestrator";
 import { runAgentTasks } from "@/lib/agents/agentRunner";
 import { detectAgentPingRequest, runAgentPing } from "@/lib/agents/agentPing";
+import { isNusaTaniBuyerRequest, runNusaTaniBuyerJob } from "@/lib/agents/nusataniAgent";
 import { generateControllerMockResponse } from "@/lib/controllerMockResponse";
 import { isCryptoAnalysisRequest, runCryptoAnalysisJob } from "@/lib/crypto/cryptoAnalysisRouter";
 import { ActivityLog, AgentResult, Artifact, ControllerRunResponse, OrchestratorPlan, Task } from "@/types";
@@ -50,6 +51,18 @@ function shouldRunController(message: string): boolean {
     "backend",
     "repo",
     "github",
+    "cari buyer",
+    "cari pembeli",
+    "cari pabrik",
+    "cari toko",
+    "cari restoran",
+    "cari grosir",
+    "cari distributor",
+    "pesan wa",
+    "pesan whatsapp",
+    "buat pesan wa",
+    "simpan lead",
+    "nusatani",
   ].some((keyword) => text.includes(keyword));
 }
 
@@ -328,7 +341,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(agentStatusResponse(message), { status: 200 });
     }
 
-    const selectedMode = mode === "auto" ? (isCryptoAnalysisRequest(message) ? "controller" : shouldRunController(message) ? "controller" : "chat") : mode;
+    const selectedMode = mode === "auto" ? (isNusaTaniBuyerRequest(message) ? "controller" : isCryptoAnalysisRequest(message) ? "controller" : shouldRunController(message) ? "controller" : "chat") : mode;
+
+    // NusaTani Buyer Agent routing (before crypto and general controller)
+    if (selectedMode !== "chat" && isNusaTaniBuyerRequest(message)) {
+      const nusataniResult = await runNusaTaniBuyerJob(message);
+      return NextResponse.json(nusataniResult, { status: 200 });
+    }
 
     if (selectedMode !== "chat" && isCryptoAnalysisRequest(message)) {
       const cryptoJob = await runCryptoAnalysisJob(message);

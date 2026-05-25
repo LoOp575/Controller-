@@ -4,10 +4,11 @@ import { Send, Sparkles, Loader2, MessageCircle, Workflow, Wand2 } from "lucide-
 import { AssistantMode, useControllerStore } from "@/store/useControllerStore";
 
 const exampleCommands = [
+  "Cari buyer jahe di Bandung",
+  "Cari pembeli beras di Garut",
+  "Buat pesan WA untuk buyer kencur",
   "Bro jelaskan status agent saya",
-  "Cek error project frontend saya",
-  "Bagi tugas ke DeepSeek, Hermes, dan Nemotron",
-  "Suruh Kiro analisis masalah berat ini",
+  "Bagi tugas ke DeepSeek dan Hermes",
 ];
 
 const modeOptions: { value: AssistantMode; label: string; icon: typeof Wand2; help: string }[] = [
